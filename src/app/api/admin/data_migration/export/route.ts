@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 解析请求体获取密码
-    const { password } = await req.json();
+    const { password } = await req.json() as { password?: string };
     if (!password || typeof password !== 'string') {
       return NextResponse.json({ error: '请提供加密密码' }, { status: 400 });
     }

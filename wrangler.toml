@@ -1,0 +1,21 @@
+# Cloudflare Workers Configuration
+name = "lunatv"
+main = "src/worker.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+INIT_SECRET = "your-init-secret-key"
+USERNAME = "admin"
+PASSWORD = "hzb803310"
+
+[[kv_namespaces]]
+binding = "LunaTV_KV"
+id = "your-kv-namespace-id-here"
+preview_id = "faebb85e70bb4afdb709f6ad40014970"
+
+[[d1_databases]]
+binding = "LunaTV_D1"
+database_name = "LunaTV_D1"
+database_id = "cc7619d9-874e-4907-9cd4-d5379dd67a14"
+preview_database_id = "cc7619d9-874e-4907-9cd4-d5379dd67a14"

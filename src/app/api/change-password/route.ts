@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const body = await request.json() as { newPassword?: string };
     const { newPassword } = body;
 
     // 获取认证信息

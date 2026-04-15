@@ -38,7 +38,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 获取请求体
-    const body = await request.json();
+    const body = await request.json() as {
+      configFile?: string;
+      subscriptionUrl?: string;
+      autoUpdate?: boolean;
+      lastCheckTime?: string;
+    };
     const { configFile, subscriptionUrl, autoUpdate, lastCheckTime } = body;
 
     if (!configFile || typeof configFile !== 'string') {

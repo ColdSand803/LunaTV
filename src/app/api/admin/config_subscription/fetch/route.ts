@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { url } = await request.json();
+    const { url } = await request.json() as { url?: string };
 
     if (!url) {
       return NextResponse.json({ error: '缺少URL参数' }, { status: 400 });

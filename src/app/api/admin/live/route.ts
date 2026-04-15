@@ -25,7 +25,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const body = await request.json();
+    const body = await request.json() as {
+      action: string;
+      key?: string;
+      name?: string;
+      url?: string;
+      ua?: string;
+      epg?: string;
+      order?: string[];
+    };
     const { action, key, name, url, ua, epg } = body;
 
     if (!config) {
@@ -68,8 +76,11 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'delete':
+        if (!key) {
+          return NextResponse.json({ error: '缺少 key 参数' }, { status: 400 });
+        }
         // 删除直播源
-        const deleteIndex = config.LiveConfig.findIndex((l) => l.key === key);
+        const deleteIndex = config.LiveConfig.findIndex((l) => l.key === key!);
         if (deleteIndex === -1) {
           return NextResponse.json({ error: '直播源不存在' }, { status: 404 });
         }
@@ -79,7 +90,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: '不能删除配置文件中的直播源' }, { status: 400 });
         }
 
-        deleteCachedLiveChannels(key);
+        deleteCachedLiveChannels(key!);
 
         config.LiveConfig.splice(deleteIndex, 1);
         break;

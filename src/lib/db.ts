@@ -1,36 +1,22 @@
 /* eslint-disable no-console, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
 import { AdminConfig } from './admin.types';
-import { KvrocksStorage } from './kvrocks.db';
-import { RedisStorage } from './redis.db';
+import { CloudflareStorage } from './cloudflare.db';
 import { Favorite, IStorage, PlayRecord, SkipConfig } from './types';
-import { UpstashRedisStorage } from './upstash.db';
 
-// storage type 常量: 'localstorage' | 'redis' | 'upstash'，默认 'localstorage'
 const STORAGE_TYPE =
-  (process.env.NEXT_PUBLIC_STORAGE_TYPE as
-    | 'localstorage'
-    | 'redis'
-    | 'upstash'
-    | 'kvrocks'
-    | undefined) || 'localstorage';
+  (process.env.NEXT_PUBLIC_STORAGE_TYPE as 'localstorage' | 'cloudflare' | undefined) || 'cloudflare';
 
-// 创建存储实例
 function createStorage(): IStorage {
   switch (STORAGE_TYPE) {
-    case 'redis':
-      return new RedisStorage();
-    case 'upstash':
-      return new UpstashRedisStorage();
-    case 'kvrocks':
-      return new KvrocksStorage();
+    case 'cloudflare':
+      return new CloudflareStorage();
     case 'localstorage':
     default:
       return null as unknown as IStorage;
   }
 }
 
-// 单例存储实例
 let storageInstance: IStorage | null = null;
 
 function getStorage(): IStorage {
@@ -40,22 +26,18 @@ function getStorage(): IStorage {
   return storageInstance;
 }
 
-// 工具函数：生成存储key
 export function generateStorageKey(source: string, id: string): string {
   return `${source}+${id}`;
 }
 
-// 导出便捷方法
 export class DbManager {
   private storage: IStorage;
   private migrationPromise: Promise<void> | null = null;
 
   constructor() {
     this.storage = getStorage();
-    // 启动时自动触发数据迁移（异步，不阻塞构造）
     if (this.storage && typeof this.storage.migrateData === 'function') {
       this.migrationPromise = this.storage.migrateData().then(async () => {
-        // 数据结构迁移完成后，执行密码哈希迁移
         if (typeof this.storage.migratePasswords === 'function') {
           await this.storage.migratePasswords();
         }
@@ -65,7 +47,6 @@ export class DbManager {
     }
   }
 
-  /** 等待迁移完成（内部方法，首次调用后 migrationPromise 会被置空） */
   private async ensureMigrated(): Promise<void> {
     if (this.migrationPromise) {
       await this.migrationPromise;
@@ -73,7 +54,6 @@ export class DbManager {
     }
   }
 
-  // 播放记录相关方法
   async getPlayRecord(
     userName: string,
     source: string,
@@ -113,7 +93,6 @@ export class DbManager {
     await this.storage.deleteAllPlayRecords(userName);
   }
 
-  // 收藏相关方法
   async getFavorite(
     userName: string,
     source: string,
@@ -162,7 +141,6 @@ export class DbManager {
     return favorite !== null;
   }
 
-  // ---------- 用户相关 ----------
   async registerUser(userName: string, password: string): Promise<void> {
     await this.storage.registerUser(userName, password);
   }
@@ -171,7 +149,6 @@ export class DbManager {
     return this.storage.verifyUser(userName, password);
   }
 
-  // 检查用户是否已存在
   async checkUserExist(userName: string): Promise<boolean> {
     return this.storage.checkUserExist(userName);
   }
@@ -184,7 +161,6 @@ export class DbManager {
     await this.storage.deleteUser(userName);
   }
 
-  // ---------- 搜索历史 ----------
   async getSearchHistory(userName: string): Promise<string[]> {
     return this.storage.getSearchHistory(userName);
   }
@@ -197,7 +173,6 @@ export class DbManager {
     await this.storage.deleteSearchHistory(userName, keyword);
   }
 
-  // 获取全部用户名
   async getAllUsers(): Promise<string[]> {
     if (typeof (this.storage as any).getAllUsers === 'function') {
       return (this.storage as any).getAllUsers();
@@ -205,7 +180,6 @@ export class DbManager {
     return [];
   }
 
-  // ---------- 管理员配置 ----------
   async getAdminConfig(): Promise<AdminConfig | null> {
     if (typeof (this.storage as any).getAdminConfig === 'function') {
       return (this.storage as any).getAdminConfig();
@@ -219,7 +193,6 @@ export class DbManager {
     }
   }
 
-  // ---------- 跳过片头片尾配置 ----------
   async getSkipConfig(
     userName: string,
     source: string,
@@ -261,7 +234,6 @@ export class DbManager {
     return {};
   }
 
-  // ---------- 数据清理 ----------
   async clearAllData(): Promise<void> {
     if (typeof (this.storage as any).clearAllData === 'function') {
       await (this.storage as any).clearAllData();
@@ -271,5 +243,4 @@ export class DbManager {
   }
 }
 
-// 导出默认实例
 export const db = new DbManager();
