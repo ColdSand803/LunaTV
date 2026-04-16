@@ -1,0 +1,25 @@
+name = "lunatv"
+compatibility_date = "2024-01-01"
+
+# [site]
+# bucket = ".output/public"
+
+[[kv_namespaces]]
+binding = "LUNATV_KV"
+id = "068a19111def4ba4a8c23ef96be05e09"
+
+[[d1_databases]]
+binding = "LUNATV_D1"
+database_name = "LUNATV_D1"
+database_id = "cc7619d9-874e-4907-9cd4-d5379dd67a14"
+
+[vars]
+NEXT_PUBLIC_STORAGE_TYPE = "cloudflare"
+
+[env.production]
+kv_namespaces = [
+  { binding = "LUNATV_KV", id = "LUNATV_KV" }
+]
+d1_databases = [
+  { binding = "LUNATV_D1", database_name = "LunaTV_D1", database_id = "LUNATV_D1" }
+]

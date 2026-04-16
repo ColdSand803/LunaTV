@@ -1,0 +1,15 @@
+{
+  "routes": {
+    "include": [
+      "/api/*",
+      "/_next/static/*",
+      "/_next/image*",
+      "/icons/*",
+      "/fonts/*",
+      "/favicon.ico",
+      "/logo.png",
+      "/robots.txt"
+    ],
+    "exclude": []
+  }
+}

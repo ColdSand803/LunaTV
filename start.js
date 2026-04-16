@@ -1,90 +1,64 @@
-#!/usr/bin/env node
-
-/* eslint-disable no-console,@typescript-eslint/no-var-requires */
+const { spawn } = require('child_process');
 const http = require('http');
-const path = require('path');
 
-// 调用 generate-manifest.js 生成 manifest.json
-function generateManifest() {
-  console.log('Generating manifest.json for Docker deployment...');
+// 强制 Node.js 优先使用 IPv4，解决 Windows 下的 502 问题
+process.env.NODE_OPTIONS = '--dns-result-order=ipv4first';
 
-  try {
-    const generateManifestScript = path.join(
-      __dirname,
-      'scripts',
-      'generate-manifest.js'
-    );
-    require(generateManifestScript);
-  } catch (error) {
-    console.error('❌ Error calling generate-manifest.js:', error);
-    throw error;
-  }
-}
+const NEXT_PORT = 3001;
+const WRANGLER_PORT = 8788;
 
-generateManifest();
+console.log('\x1b[36m%s\x1b[0m', '--- LunaTV 终极一键启动 (IPv4 强制版) ---');
 
-// 直接在当前进程中启动 standalone Server（`server.js`）
-require('./server.js');
+// 1. 启动 Next.js 后端
+console.log(`🚀 正在启动 Next.js (127.0.0.1:${NEXT_PORT})...`);
+const next = spawn('npx.cmd', ['next', 'dev', '-p', NEXT_PORT.toString(), '-H', '127.0.0.1'], {
+  stdio: 'pipe',
+  shell: true
+});
 
-// 每 1 秒轮询一次，直到请求成功
-const TARGET_URL = `http://${process.env.HOSTNAME || 'localhost'}:${process.env.PORT || 3000
-  }/login`;
+next.stdout.on('data', (data) => {
+  process.stdout.write(`\x1b[32m[Next.js]\x1b[0m ${data}`);
+});
 
-const intervalId = setInterval(() => {
-  console.log(`Fetching ${TARGET_URL} ...`);
+next.stderr.on('data', (data) => {
+  process.stderr.write(`\x1b[31m[Next.js Error]\x1b[0m ${data}`);
+});
 
-  const req = http.get(TARGET_URL, (res) => {
-    // 当返回 2xx 状态码时认为成功，然后停止轮询
-    if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-      console.log('Server is up, stop polling.');
-      clearInterval(intervalId);
+// 2. 轮询检查就绪
+const checkNextReady = () => {
+  const req = http.get(`http://127.0.0.1:${NEXT_PORT}`, (res) => {
+    console.log('\x1b[35m%s\x1b[0m', '✅ 后端已就绪，正在连接数据库代理...');
+    startWrangler();
+  });
+  req.on('error', () => setTimeout(checkNextReady, 1000));
+};
 
-      setTimeout(() => {
-        // 服务器启动后，立即执行一次 cron 任务
-        executeCronJob();
-      }, 3000);
-
-      // 然后设置每小时执行一次 cron 任务
-      setInterval(() => {
-        executeCronJob();
-      }, 60 * 60 * 1000); // 每小时执行一次
-    }
+// 3. 启动代理
+const startWrangler = () => {
+  // 关键：我们不再提供目录参数，只提供 --proxy
+  // 同时显式指定代理到 127.0.0.1 (IPv4)
+  const wrangler = spawn('npx.cmd', [
+    'wrangler', 'pages', 'dev',
+    '--compatibility-date=2024-01-01',
+    '--kv=LUNATV_KV',
+    '--d1=LUNATV_D1',
+    '--port', WRANGLER_PORT.toString(),
+    '--proxy', `http://127.0.0.1:${NEXT_PORT}`
+    // 已移除不支持的 --remote
+  ], {
+    stdio: 'inherit',
+    shell: true
   });
 
-  req.setTimeout(2000, () => {
-    req.destroy();
+  wrangler.on('close', (code) => {
+    next.kill();
+    process.exit(code);
   });
-}, 1000);
+};
 
-// 执行 cron 任务的函数
-function executeCronJob() {
-  const cronUrl = `http://${process.env.HOSTNAME || 'localhost'}:${process.env.PORT || 3000
-    }/api/cron`;
+checkNextReady();
 
-  console.log(`Executing cron job: ${cronUrl}`);
-
-  const req = http.get(cronUrl, (res) => {
-    let data = '';
-
-    res.on('data', (chunk) => {
-      data += chunk;
-    });
-
-    res.on('end', () => {
-      if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-        console.log('Cron job executed successfully:', data);
-      } else {
-        console.error('Cron job failed:', res.statusCode, data);
-      }
-    });
-  });
-
-  req.on('error', (err) => {
-    console.error('Error executing cron job:', err);
-  });
-
-  req.setTimeout(30000, () => {
-    console.error('Cron job timeout');
-    req.destroy();
-  });
-}
+process.on('SIGINT', () => {
+  next.kill();
+  process.exit();
+});
